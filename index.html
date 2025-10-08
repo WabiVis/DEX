@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+
+<html lang="it">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width,initial-scale=1" name="viewport"/>
+<title>Dataexpert · PERT – Stima a tre punti</title>
+<style>
+  :root{
+    --bg:#f7fafc; --fg:#0f172a; --muted:#5b6473; --primary:#2563eb; --soft:#eef2ff;
+    --card:#ffffff; --line:#e5e7eb; --bad:#ef4444; --shadow:0 10px 24px rgba(0,0,0,.06);
+  }
+  *{ box-sizing:border-box; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif }
+  body{ margin:0; background:var(--bg); color:var(--fg); }
+  .wrap{ max-width:1100px; margin:0 auto; padding:24px; }
+  .brand{ display:flex; align-items:center; gap:14px; }
+  .brand img{ height:44px; }
+  .brand h1{ margin:0; font-size:clamp(22px,3.4vw,30px) }
+  p.lead{ margin:.3rem 0 1rem; color:var(--muted) }
+
+  .grid{ display:grid; gap:16px; grid-template-columns: 1fr; }
+  @media(min-width:980px){ .grid{ grid-template-columns: 1.2fr .8fr } }
+
+  .card{ background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px; box-shadow:var(--shadow)}
+  .formula{ border-left:6px solid var(--primary); background:var(--soft); }
+  .formula h2{ margin:.2rem 0 .6rem; font-size:18px }
+  code.k{ background:#fff; padding:.25rem .5rem; border:1px dashed #c7d2fe; border-radius:10px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .legend{ display:grid; gap:8px; grid-template-columns: 1fr }
+  .legend .item{ display:flex; gap:8px; align-items:center; }
+  .dot{ width:10px; height:10px; border-radius:50%; }
+  .o{ background:#22c55e } .m{ background:#a78bfa } .p{ background:#ef4444 }
+  .muted{ color:var(--muted); font-size:13px }
+
+  /* Box controlli unità/conversione */
+  .controls{ display:grid; gap:10px; grid-template-columns: 1fr; }
+  @media(min-width:680px){ .controls{ grid-template-columns: 1fr 1fr; } }
+  .control-card{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; border:1px solid var(--line); border-radius:12px; background:#fff }
+  .control-left{ display:flex; align-items:center; gap:10px; flex-wrap:wrap }
+  .row{ display:flex; flex-wrap:wrap; gap:10px; align-items:center }
+  select, input[type="number"]{ padding:10px 12px; border-radius:10px; border:1px solid var(--line); background:#fff; min-width:140px }
+  .mini{ width:120px }
+  .switch{ display:flex; align-items:center; gap:8px; }
+
+  /* Tooltip */
+  .tip{ position:relative; display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:999px; background:#e2e8f0; color:#0f172a; font-weight:700; cursor:default }
+  .tip:hover .tiptext{ opacity:1; transform:translateY(-4px); pointer-events:auto }
+  .tiptext{
+    position:absolute; top:-8px; left:50%; transform:translate(-50%, -8px);
+    background:#111827; color:#fff; padding:8px 10px; border-radius:10px; font-size:12px; line-height:1.2; width:max-content; max-width:260px;
+    box-shadow:0 8px 20px rgba(0,0,0,.2); opacity:0; transition:.15s; pointer-events:none; z-index:10;
+  }
+  .tiptext:after{
+    content:""; position:absolute; bottom:-6px; left:50%; transform:translateX(-50%);
+    border-width:6px; border-style:solid; border-color:#111827 transparent transparent transparent;
+  }
+
+  table{ width:100%; border-collapse: collapse; margin-top:12px; }
+  th, td{ padding:10px; border-bottom:1px solid var(--line); text-align:right; font-variant-numeric: tabular-nums }
+  th:first-child, td:first-child{ text-align:left }
+  tfoot td{ font-weight:600 }
+  .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace }
+  .badge{ font-size:12px; padding:2px 8px; border-radius:999px; background:#f1f5f9; border:1px solid var(--line); color:var(--muted) }
+  .unit-pill{ display:inline-block; margin-left:6px; }
+  .danger{ outline:2px solid var(--bad) }
+
+  button{ padding:10px 12px; border-radius:10px; border:1px solid #1d4ed8; background:var(--primary); color:#fff; cursor:pointer }
+  button.sec{ background:#fff; color:var(--fg); border-color:var(--line) }
+</style>
+</head>
+<body>
+<div class="wrap">
+<!-- Header con logo -->
+<!-- 
+ <header>
+    <div class="brand">
+       <img alt="Dataexpert" src="logo_dataexpert.png" /> 
+      <h1>PERT – Stima a tre punti</h1>
+    </div>
+    <p class="lead">Strumento interno per stimare la durata delle attività con tre valori:
+      <strong>O</strong> (ottimistico), <strong>M</strong> (più probabile), <strong>P</strong> (pessimistico).
+      PERT restituisce un <em>valore atteso</em> e la relativa <em>incertezza</em>.
+    </p>
+  </header>
+  
+  -->
+<header style="text-align:center; margin-bottom:20px;">
+<!-- Logo aziendale -->
+<div class="logo-box" style="margin-bottom:10px; padding:20px 0; background:linear-gradient(180deg,#3a404c,#2D343F); border-radius:12px; display:inline-block; width:100%;">
+<img alt="Dataexpert" src="logo_dataexpert.png" style="height:70px; width:auto; display:inline-block; filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));"/>
+</div>
+<!-- Titolo principale -->
+<h1 style="margin:0; font-size:clamp(24px,3.5vw,32px); color:#FCC100;">PERT – Stima a tre punti</h1>
+<p class="lead" style="max-width:700px; margin:8px auto 0; color:#5b6473;">
+<i>"Program Evaluation Review Technique Chart Explained"</i> <br/><br/>
+	Il metodo Pert è una formula utilizzata in ambito di Project management per aiutarci a stimare correttamente un'attività.<br/><br/>
+	Per farlo dobbiamo ipotizzare tre valori di stima diversi:<br/>
+<strong>O</strong> (ottimistico),<br/>
+<strong>M</strong> (più probabile)<br/>
+<strong>P</strong> (pessimistico).<br/><br/>
+	PERT restituisce un
+    <em>valore atteso</em> e la relativa <em>incertezza</em>.
+  </p>
+</header>
+<!-- Controlli unità & conversione -->
+<section class="controls">
+<div class="control-card">
+<div class="control-left">
+<strong>Unità</strong>
+<select aria-label="Seleziona unità di misura" id="unitSel">
+<option value="ore">Ore</option>
+<option value="giorni">Giorni</option>
+<option value="SP">Story Points</option>
+</select>
+</div>
+<div class="badge" id="unitBadge">Unità corrente: ore</div>
+</div>
+<div class="control-card">
+<div class="control-left">
+<div class="switch">
+<input id="convToggle" type="checkbox"/>
+<label for="convToggle"><strong>Converti automaticamente</strong> Ore ↔ Giorni</label>
+<span aria-label="Informazioni conversione" class="tip">i
+            <span class="tiptext" id="tipText">Esempio: 16 ore = 2 giorni con 8h/giorno.</span>
+</span>
+</div>
+</div>
+<div class="row">
+<label class="muted" for="hoursPerDay">Giorno lavorativo</label>
+<input class="mini mono" id="hoursPerDay" min="1" step="0.25" type="number" value="8"/> <span class="muted">ore</span>
+</div>
+</div>
+</section>
+<section class="grid" style="margin-top:16px">
+<!-- Formula + legenda -->
+<div class="card formula">
+<h2>Formula (PERT classico)
+        <span class="badge unit-pill" id="unitBadge2">Unità: ore</span>
+</h2>
+<div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center">
+<div><span class="badge">Valore atteso</span> <code class="k">E = (O + 4M + P) / 6</code></div>
+<div><span class="badge">Dev. standard</span> <code class="k">σ = (P − O) / 6</code></div>
+<div><span class="badge">Varianza</span> <code class="k">Var = σ²</code></div>
+</div>
+<p class="muted" style="margin-top:.6rem"><strong>Spiegazione:</strong> La formula <strong>E = (O + 4M + P) / 6</strong> indica il <strong>tempo medio atteso</strong> di un’attività secondo 
+il metodo PERT: combina le tre stime — <strong>Ottimistica (O)</strong>, <strong>Più probabile (M) </strong>e <strong>Pessimistica (P) </strong>— dando maggiore peso a quella più probabile. 
+Infine la formula si divide per 6, che è la somma del peso dato ai singoli fattori: un punto per O, un punto per P e quattro punti per M. 
+</p>
+<p class="muted" style="margin-top:.6rem"><strong>Deviazione standard (σ):</strong> misura la
+        <em>variabilità</em> della stima. Qui indica di quanto una singola attività può
+        ragionevolmente discostarsi dal valore atteso. A livello progetto usiamo ΣVar per
+        ricavare un <em>range 95%</em> (≈ E ± 1.96·√Σσ²) dell’intera stima.</p>
+<hr style="border:none;border-top:1px solid var(--line); margin:12px 0"/>
+<div class="legend">
+<div class="item"><span class="dot o"></span><strong>O</strong> – tempo migliore ragionevole.</div>
+<div class="item"><span class="dot m"></span><strong>M</strong> – durata più probabile.</div>
+<div class="item"><span class="dot p"></span><strong>P</strong> – tempo peggiore ragionevole.</div>
+</div>
+</div>
+<!-- Guida rapida -->
+<div class="card">
+<h3 style="margin:.2rem 0 .6rem">Come usarlo</h3>
+<ol style="margin:.2rem 0 .6rem; padding-left:1.2rem">
+<li>Scegli l’<strong>unità</strong>; se attivi la conversione, passare Ore↔Giorni adatterà i valori.</li>
+<li>Imposta “<strong>Ore per giorno</strong>” (default 8h) per la conversione.</li>
+<li>Inserisci <strong>O, M, P</strong> e premi <em>Aggiungi</em>.</li>
+</ol>
+<p class="muted">La conversione non si applica agli <em>Story Points</em> (unità astratta).</p>
+</div>
+</section>
+<!-- Box calcoli -->
+<section class="card" style="margin-top:16px">
+<h2 style="margin:0 0 .6rem">Calcoli PERT</h2>
+<div class="row" style="margin-bottom:8px">
+<input id="taskName" placeholder="Nome attività"/>
+<input class="mono" id="o" placeholder="O (ottimistico)" step="0.01" type="number"/>
+<input class="mono" id="m" placeholder="M (più probabile)" step="0.01" type="number"/>
+<input class="mono" id="p" placeholder="P (pessimistico)" step="0.01" type="number"/>
+<button id="add">Aggiungi</button>
+<button class="sec" id="clear">Svuota</button>
+</div>
+<table aria-label="Tabella stime PERT" id="tbl">
+<thead>
+<tr>
+<th>Attività</th>
+<th class="mono">O</th>
+<th class="mono">M</th>
+<th class="mono">P</th>
+<th class="mono">E</th>
+<th class="mono">σ</th>
+<th>±1σ</th>
+<th>±2σ</th>
+<th></th>
+</tr>
+</thead>
+<tbody></tbody>
+<tfoot>
+<tr>
+<td>Stima prevista progetto</td>
+<td class="muted" colspan="2">Somma attesi</td>
+<td></td>
+<td class="mono" id="sumE">0</td>
+<td class="mono">—</td>
+<td class="mono" colspan="3" id="ci95">Intervallo 95%: —</td>
+</tr>
+</tfoot>
+</table>
+</section>
+<footer class="muted" style="margin-top:12px">
+    Se <strong>P &lt; O</strong> o <strong>M</strong> è fuori dall’intervallo [O, P], i campi vengono evidenziati.<br><br> <strong>Designed by Simone Viscomi</strong>
+  </footer>
+</div>
+<script>
+  const state = []; // conserva i valori nelle UNITÀ CORRENTI (verranno convertiti se richiesto)
+  const $ = s => document.querySelector(s);
+  const tbody = $("#tbl tbody");
+  const unitSel = $("#unitSel");
+  const unitBadge = $("#unitBadge");
+  const unitBadge2 = $("#unitBadge2");
+  const convToggle = $("#convToggle");
+  const hoursPerDayInput = $("#hoursPerDay");
+  const tipText = $("#tipText");
+  function unit(){ return unitSel.value; }
+  function hpd(){
+    const v = parseFloat(hoursPerDayInput.value);
+    return (isFinite(v) && v >= 1) ? v : 8;
+  }
+  function ufmt(n){ return Number.isFinite(n) ? `${(+n).toLocaleString(undefined,{maximumFractionDigits:3})} ${unit()}` : "—"; }
+
+  function updateUnitBadges(){
+    const label = `Unità: ${unit()}`;
+    unitBadge.textContent = `Unità corrente: ${unit()}`;
+    unitBadge2.textContent = label;
+  }
+
+  function updateTooltip(){
+    const hours = 16; // esempio
+    const days = (hours / hpd()).toLocaleString(undefined,{maximumFractionDigits:2});
+    tipText.textContent = `Esempio: ${hours} ore = ${days} giorni con ${hpd()}h/giorno.`;
+  }
+
+  function convertAll(fromU, toU){
+    if(fromU === toU) return;
+    const canConvert = (a,b)=> (a==="ore" && b==="giorni") || (a==="giorni" && b==="ore");
+    if(!canConvert(fromU,toU)) return;
+    const factor = (fromU==="ore" && toU==="giorni") ? (1 / hpd()) : hpd();
+    state.forEach(t=>{
+      t.o *= factor; t.m *= factor; t.p *= factor;
+    });
+  }
+
+  function recalc(){
+    tbody.innerHTML = "";
+    let sumE = 0, sumVar = 0;
+    state.forEach((t,i)=>{
+      const E = (t.o + 4*t.m + t.p)/6;
+      const sigma = (t.p - t.o)/6;
+      const v = sigma * sigma;
+      sumE += E; sumVar += v;
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${t.name}</td>
+        <td class="mono">${ufmt(t.o)}</td>
+        <td class="mono">${ufmt(t.m)}</td>
+        <td class="mono">${ufmt(t.p)}</td>
+        <td class="mono">${ufmt(E)}</td>
+        <td class="mono">${ufmt(sigma)}</td>
+        <td class="mono">${ufmt(E - sigma)} – ${ufmt(E + sigma)}</td>
+        <td class="mono">${ufmt(E - 2*sigma)} – ${ufmt(E + 2*sigma)}</td>
+        <td><button class="sec del" data-i="${i}">Rimuovi</button></td>`;
+      tbody.appendChild(tr);
+    });
+
+    const ci = 1.96 * Math.sqrt(sumVar);
+    $("#sumE").textContent = ufmt(sumE);
+    $("#ci95").textContent = Number.isFinite(ci) ? `Intervallo 95%: ${ufmt(sumE - ci)} – ${ufmt(sumE + ci)}` : "Intervallo 95%: —";
+
+    [...document.querySelectorAll(".del")].forEach(b=>{
+      b.onclick = () => { state.splice(+b.dataset.i,1); recalc(); };
+    });
+  }
+
+  function add(){
+    const name = $("#taskName").value.trim() || `Attività ${state.length+1}`;
+    const o = parseFloat($("#o").value), m = parseFloat($("#m").value), p = parseFloat($("#p").value);
+    if(!isFinite(o)||!isFinite(m)||!isFinite(p)){ alert("Inserisci O, M, P numerici."); return; }
+    state.push({name,o,m,p});
+    $("#taskName").value = $("#o").value = $("#m").value = $("#p").value = "";
+    recalc();
+  }
+
+  $("#add").onclick = add;
+  $("#clear").onclick = ()=>{ if(confirm("Svuotare tutte le attività?")){ state.splice(0); recalc(); } };
+
+  // validazione visiva O/M/P
+  ["o","m","p"].forEach(id=>{
+    $("#"+id).addEventListener("input", ()=>{
+      const o = parseFloat($("#o").value), m=parseFloat($("#m").value), p=parseFloat($("#p").value);
+      ["o","m","p"].forEach(x=>$("#"+x).classList.remove("danger"));
+      if(isFinite(o)&&isFinite(m)&&isFinite(p)){
+        if(p < o){ $("#p").classList.add("danger"); $("#o").classList.add("danger"); }
+        if(m < o || m > p){ $("#m").classList.add("danger"); }
+      }
+    });
+  });
+
+  // gestione cambio unità con conversione opzionale
+  let lastUnit = unit();
+  unitSel.addEventListener("change", ()=>{
+    const newUnit = unitSel.value;
+    if(convToggle.checked){ convertAll(lastUnit, newUnit); }
+    lastUnit = newUnit;
+    updateUnitBadges(); recalc();
+  });
+
+  // se cambia “ore per giorno” e la conversione è attiva ed unità = giorni, ricalibra
+  hoursPerDayInput.addEventListener("change", ()=>{
+    updateTooltip();
+    if(!convToggle.checked) return;
+    const u = unit();
+    if(u!=="giorni") return;
+    const old = parseFloat(hoursPerDayInput.defaultValue) || 8;
+    const now = hpd();
+    if(old === now) return;
+    // porta tutto a ore col vecchio hpd, poi ritraduci in giorni col nuovo
+    state.forEach(t=>{ t.o *= old; t.m *= old; t.p *= old; });
+    state.forEach(t=>{ t.o /= now; t.m /= now; t.p /= now; });
+    hoursPerDayInput.defaultValue = String(now);
+    recalc();
+  });
+
+  // init
+  updateUnitBadges();
+  hoursPerDayInput.defaultValue = hoursPerDayInput.value;
+  updateTooltip();
+</script>
+</body>
+</html>
